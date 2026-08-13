@@ -174,7 +174,7 @@
     }
   }
 
-  async function connectTeams() {
+  async function connectTeams(openBrowser = true) {
     devLog('[ONBOARDING] connectTeams: ENTRY');
 
     try {
@@ -196,9 +196,13 @@
       });
       devLog('[ONBOARDING] connectTeams: state updated');
 
-      devLog('[ONBOARDING] connectTeams: calling invoke open_external_url');
-      await invoke('open_external_url', { url: teamsVerificationUrl });
-      devLog('[ONBOARDING] connectTeams: open_external_url SUCCESS');
+      if (openBrowser) {
+        devLog('[ONBOARDING] connectTeams: calling invoke open_external_url');
+        await invoke('open_external_url', { url: teamsVerificationUrl });
+        devLog('[ONBOARDING] connectTeams: open_external_url SUCCESS');
+      } else {
+        devLog('[ONBOARDING] connectTeams: browser open skipped for other-device sign-in');
+      }
 
       // Auto-poll once the user opens the browser. The user can also retry manually.
       pollTeamsAuth();
@@ -358,6 +362,24 @@
           </ol>
         </div>
 
+        <div class="instructions-box">
+          <h3>Conditional Access sign-in</h3>
+          <p>Generate the Microsoft device code here, then enter it on your compliant machine.</p>
+          {#if !teamsConnected && !teamsPolling}
+            <button class="btn-secondary" onclick={() => connectTeams(false)}>Generate Teams code</button>
+          {:else if teamsPolling}
+            <p class="hint">Go to <strong>{teamsVerificationUrl}</strong> on the other machine and enter:</p>
+            <div class="code-display" aria-live="polite">{teamsUserCode}</div>
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Waiting for Microsoft sign-in…</p>
+          {:else}
+            <div class="success-badge"><span aria-hidden="true">✓</span> Connected to Microsoft Teams</div>
+          {/if}
+          {#if teamsAuthError}
+            <p class="error-message" role="alert">{teamsAuthError}</p>
+          {/if}
+        </div>
+
         <div class="form-group">
           <label for="client-id">Client ID</label>
           <input
@@ -422,7 +444,7 @@
         </p>
 
         {#if !teamsConnected && !teamsPolling}
-          <button class="btn-full" onclick={connectTeams}>Start Microsoft sign-in</button>
+          <button class="btn-full" onclick={() => connectTeams()}>Start Microsoft sign-in</button>
         {:else if teamsPolling}
           <div class="device-code-box">
             <p class="hint">Go to</p>
