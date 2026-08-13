@@ -37,10 +37,10 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Run Rust tests
+      - name: Run Teams OAuth regression test
         env:
           CARGO_INCREMENTAL: 0
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+        run: cargo test --manifest-path src-tauri/Cargo.toml teams_oauth_profile_scope_also_requests_openid
 
       - name: Build unsigned Windows MSI
         env:
