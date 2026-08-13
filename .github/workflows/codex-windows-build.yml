@@ -1,0 +1,68 @@
+name: Codex Windows build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/build-teams-openid-3.0.1
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@6190aa5fb88a88ee71c12769924bbe63a9ab152e # 1.96
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run Rust tests
+        env:
+          CARGO_INCREMENTAL: 0
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+
+      - name: Build unsigned Windows MSI
+        env:
+          CARGO_INCREMENTAL: 0
+        run: npx tauri build --config src-tauri/tauri.codex-build.conf.json
+
+      - name: Package installer and checksum
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem 'src-tauri/target/release/bundle/msi' -Filter '*.msi' | Select-Object -First 1
+          if (-not $msi) {
+            throw 'No MSI was produced'
+          }
+          Copy-Item $msi.FullName 'PresenceJam_3.0.1_openid_fix_x64.msi'
+          $hash = (Get-FileHash 'PresenceJam_3.0.1_openid_fix_x64.msi' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  PresenceJam_3.0.1_openid_fix_x64.msi" | Set-Content 'SHA256.txt' -Encoding ascii
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: PresenceJam-3.0.1-openid-fix-windows-x64
+          path: |
+            PresenceJam_3.0.1_openid_fix_x64.msi
+            SHA256.txt
+          if-no-files-found: error
