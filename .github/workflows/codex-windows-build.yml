@@ -55,8 +55,10 @@ jobs:
             throw 'No MSI was produced'
           }
           Copy-Item $msi.FullName 'PresenceJam_3.0.1_openid_fix_x64.msi'
-          $hash = (Get-FileHash 'PresenceJam_3.0.1_openid_fix_x64.msi' -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  PresenceJam_3.0.1_openid_fix_x64.msi" | Set-Content 'SHA256.txt' -Encoding ascii
+          Copy-Item 'src-tauri/target/release/presence-jam.exe' 'PresenceJam_3.0.1_openid_fix_portable.exe'
+          Get-FileHash 'PresenceJam_3.0.1_openid_fix_x64.msi','PresenceJam_3.0.1_openid_fix_portable.exe' -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($_.Path))" } |
+            Set-Content 'SHA256.txt' -Encoding ascii
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -64,5 +66,6 @@ jobs:
           name: PresenceJam-3.0.1-openid-fix-windows-x64
           path: |
             PresenceJam_3.0.1_openid_fix_x64.msi
+            PresenceJam_3.0.1_openid_fix_portable.exe
             SHA256.txt
           if-no-files-found: error
