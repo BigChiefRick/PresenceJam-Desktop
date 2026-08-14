@@ -13,6 +13,9 @@ jobs:
   build-windows:
     runs-on: windows-latest
     timeout-minutes: 45
+    env:
+      PRESENCEJAM_MICROSOFT_CLIENT_ID: ${{ vars.PRESENCEJAM_MICROSOFT_CLIENT_ID }}
+      PRESENCEJAM_MICROSOFT_TENANT_ID: ${{ vars.PRESENCEJAM_MICROSOFT_TENANT_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -34,6 +37,16 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Verify tenant build inputs
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:PRESENCEJAM_MICROSOFT_CLIENT_ID)) {
+            throw 'PRESENCEJAM_MICROSOFT_CLIENT_ID repository variable is required'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:PRESENCEJAM_MICROSOFT_TENANT_ID)) {
+            throw 'PRESENCEJAM_MICROSOFT_TENANT_ID repository variable is required'
+          }
+
       - name: Build frontend
         run: npm run build
 
@@ -54,18 +67,18 @@ jobs:
           if (-not $msi) {
             throw 'No MSI was produced'
           }
-          Copy-Item $msi.FullName 'PresenceJam_3.0.1_openid_fix_x64.msi'
-          Copy-Item 'src-tauri/target/release/presence-jam.exe' 'PresenceJam_3.0.1_openid_fix_portable.exe'
-          Get-FileHash 'PresenceJam_3.0.1_openid_fix_x64.msi','PresenceJam_3.0.1_openid_fix_portable.exe' -Algorithm SHA256 |
+          Copy-Item $msi.FullName 'PresenceJam_3.0.1_USMR_x64.msi'
+          Copy-Item 'src-tauri/target/release/presence-jam.exe' 'PresenceJam_3.0.1_USMR_portable.exe'
+          Get-FileHash 'PresenceJam_3.0.1_USMR_x64.msi','PresenceJam_3.0.1_USMR_portable.exe' -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLowerInvariant())  $([IO.Path]::GetFileName($_.Path))" } |
             Set-Content 'SHA256.txt' -Encoding ascii
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: PresenceJam-3.0.1-openid-fix-windows-x64
+          name: PresenceJam-3.0.1-USMR-windows-x64
           path: |
-            PresenceJam_3.0.1_openid_fix_x64.msi
-            PresenceJam_3.0.1_openid_fix_portable.exe
+            PresenceJam_3.0.1_USMR_x64.msi
+            PresenceJam_3.0.1_USMR_portable.exe
             SHA256.txt
           if-no-files-found: error

@@ -3,9 +3,23 @@ use serde::{Deserialize, Serialize};
 use std::thread;
 use std::time::Duration as StdDuration;
 
-pub const MICROSOFT_GRAPH_CLIENT_ID: &str = "14d82eec-204b-4c2f-b7e8-296a70dab67e";
+pub const MICROSOFT_GRAPH_CLIENT_ID: &str =
+    match option_env!("PRESENCEJAM_MICROSOFT_CLIENT_ID") {
+        Some(client_id) => client_id,
+        None => "14d82eec-204b-4c2f-b7e8-296a70dab67e",
+    };
+pub const MICROSOFT_TENANT_ID: &str = match option_env!("PRESENCEJAM_MICROSOFT_TENANT_ID") {
+    Some(tenant_id) => tenant_id,
+    None => "common",
+};
 pub const MICROSOFT_GRAPH_SCOPES: &str =
     "Presence.ReadWrite Presence.Read openid profile offline_access";
+
+fn microsoft_identity_url(endpoint: &str) -> String {
+    format!(
+        "https://login.microsoftonline.com/{MICROSOFT_TENANT_ID}/oauth2/v2.0/{endpoint}"
+    )
+}
 
 /// Truncates a string for safe logging. Returns the body unchanged if it
 /// fits in 256 chars; otherwise returns the first 256 chars (cut at a
@@ -157,7 +171,7 @@ pub fn start_teams_auth_device_code() -> Result<DeviceCodeResponse, String> {
     log::info!("teams::start_teams_auth_device_code: calling devicecode endpoint");
 
     let response = client
-        .post("https://login.microsoftonline.com/common/oauth2/v2.0/devicecode")
+        .post(microsoft_identity_url("devicecode"))
         .header("Accept", "application/json")
         .form(&params)
         .send()
@@ -271,7 +285,7 @@ pub fn poll_teams_auth(device_code: &str, interval: u64) -> Result<TeamsTokens, 
         ];
 
         let response = client
-            .post("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+            .post(microsoft_identity_url("token"))
             .header("Accept", "application/json")
             .form(&params)
             .send()
@@ -367,7 +381,7 @@ pub fn refresh_teams_token(tokens: &TeamsTokens) -> Result<TeamsTokens, TeamsApi
     ];
 
     let response = client
-        .post("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+        .post(microsoft_identity_url("token"))
         .header("Accept", "application/json")
         .form(&params)
         .send()
@@ -946,13 +960,26 @@ pub fn validate_teams_token(tokens: &TeamsTokens) -> Result<(), TeamsApiError> {
 #[cfg(test)]
 mod tests {
     use super::truncate_for_log;
-    use super::{DeviceCodeResponse, TeamsTokens, MICROSOFT_GRAPH_SCOPES};
+    use super::{
+        microsoft_identity_url, DeviceCodeResponse, TeamsTokens, MICROSOFT_GRAPH_SCOPES,
+        MICROSOFT_TENANT_ID,
+    };
 
     #[test]
     fn teams_oauth_profile_scope_also_requests_openid() {
         let scopes: Vec<&str> = MICROSOFT_GRAPH_SCOPES.split_whitespace().collect();
         assert!(scopes.contains(&"profile"));
         assert!(scopes.contains(&"openid"));
+    }
+
+    #[test]
+    fn teams_oauth_authority_uses_configured_tenant() {
+        assert_eq!(
+            microsoft_identity_url("devicecode"),
+            format!(
+                "https://login.microsoftonline.com/{MICROSOFT_TENANT_ID}/oauth2/v2.0/devicecode"
+            )
+        );
     }
 
     #[test]
